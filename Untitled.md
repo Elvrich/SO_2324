@@ -62,9 +62,9 @@ Meccanismo col quale si sceglie quale sia la prossima richiesta da servire, tra 
 
 Alcuni esempi di **scheduling** sono:
 - **a lungo termine**: 
-	Lavora sulle memorie primaria e secondaria
+	Lavora sulle memorie primaria e secondaria, decide quale processo deve passare da memoria secondaria a primaria, quando la primaria ha spazio
 - **a medio termine**/swapping
-	I processi vengono spostati tra mem. secondaria e mem. primaria
+	I processi vengono spostati tra mem. secondaria e mem. primaria, focalizzato sulla sostituzione tra processi in memorie diverse. Quindi di decidere di muovere un processo in memoria secondaria in favore di uno che deve essere spostato in memoria principale
 - **a breve termine**:
 	scelta di quale tra i processi ready riceve la CPU
 
@@ -99,9 +99,117 @@ avremo due celle di memoria che dicono dove si può inserire un elemento e una c
 ### Thread 
 formati da *ID* + *stack*
 sono diversi segmenti attivi interni al codice
-Un processo è composto da *codice*, *dati* e *risorse*
+Un processo è composto da *codice*, *dati* e *risorse*. 
+I thread condividono le variabili globali
+
+La *comunicazione* e il *context-switch* tra thread sono più rapidi
+
+Come il **SO** gestisce i thread:
+- Il **SO** deve conoscere la relazione processo-thread (associa thread a quale proc.)
+- deve **Gestire la CPU**
+
+Vediamo 3 modi di gestire la CPU per i Thread:
+1. a ogni processo il SO assegna una sola risorsa di esecuzione
+2. a ogni processo il SO assegna tante risorse di esecuzione quanti sono i suoi thread
+3. **molti a molti**:
+	Il Sistema operativo assegna al processo un numero di risorse (Lwp), i quali rappresentano la possibilità dei Thread di essere inseriti nella coda *Ready*. Il Processo utente assegna gli Lwp a dei suoi Thread interni (Thread utente) e il SO si occupa di mandarli in esecuzione. Quando un Thread utente viene rimosso dalla coda Ready, avviene una upcall dal SO al processo utente, in modo che quest'ultimo sia notificato e possa "rivalutare" a chi assegnare Lwp
+
+### Esecuzione concorrente asincrona
+Problematiche legate alla condivisione di dati
+
+### Sezione critica
+Buone proprietà al problema della *sezione critica*
+1. mutua esclusione
+2. attesa limitata
+3. progresso: I processi che non usano la variabile condivisa non impediscono gli altri processi
+
+### Sezione critica soluzione 1
+
+processo j:
+``` C
+while(turn != j) {}
+//< sezione critica >
+turno = i
+```
+processo i:
+``` C
+while(turn != i) {}
+//< sezione critica >
+turno = j
+```
+Il turno va contro la proprietà del *progresso*, perché se un processo esce dalla propria sezione critica, non può rientrarci finché un altro processo gli passi il turno
+Infine, questa soluzione ha delle attese attive. Le soluzioni *vere* implementano meccanismi che evita il check in loop del turno (quando finisce la sezione critica, si solleverà un evento che riattiva i processi in attesa)
+
+### sezione critica soluzione 2
+uso un vettore `boolean flag[]` dove se `flag[i] == True` allora *processo i* vuole entrare in sezione critica e se `flag[j] == True` allora lo vuole il *processo j* 
+*processo i*
+```C
+flag[i] = True;    //ingresso
+while (flag[j]) {} //ingresso
+//< sezione critica >
+flag[i] = False;   //uscita
+```
+Visto che le due righe di ingresso non sono atomiche, può avvenire interleaving durante l'esecuzione tra le due, permettendo a entrambe di accedere alla sezione critica e rompendo il sistema
+Tuttavia rispetta la proprietà di *progresso*
+
+### algoritmo di Peterson
+Variabili necessarie
+`turno` -> {`i`,` j`}
+`flag[i]`, `flag[j]`
+*Processo i*:
+``` C
+flag[i] = True; //ingresso
+turno = j  //ingresso
+while (flag[j] && turno == j) {} //ingresso
+//< sezione critica >
+flag[i] = False;//uscita
+```
+Notiamo che la sezione di ingresso è complicata, anche per gestire 2 soli processi.
+Soddisfa le tre proprietà. Tuttavia avviene la *racing/race condition*, ovvero i processi sono in competizione per accedere alla propria sezione critica
+**Problemi**: 
+- La sezione di ingresso diventa molto complessa (8 righe. Implementa l'algo del fornaio, cioè il numero per il bancone).
+- Attesa attiva (busy waiting)
+
+### soluzioni hardware
+La CPU fornisce istruzioni speciali in esecuzione atomica
+- test and set
+- swap
+
+### Test & Set
+``` C
+boolean TestAndSet(boolean *variabile) {
+	boolean valore = *variabile;
+	*variabile = True;
+	return valore;
+}
+```
+Quindi permette di:
+*processo 1*:
+```C
+boolean lock = False;// variabile condivisa
+while (TestAndSet(&lock)) {}
+//< sezione critica >
+lock = False;
+```
+**difetti**:
+- attesa attiva
+- non garantisce che la risorsa sia condivisa in maniera equa
 
 
+### Swap
+< mancante >
+
+### Semafori
+operazioni: 
+`P()` -> verifica (-1)
+`V()` -> incrementa (+1)
+**Struttura dell'oggetto semaforo** in breve:
+```C
+struct sem(
+	value int
+	
+)
+```
 
 ---
 
